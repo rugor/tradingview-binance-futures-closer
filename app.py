@@ -1,7 +1,12 @@
-import json, config
+import json
+import os
 from flask import Flask, request
 from binance.client import Client
 from binance.enums import *
+
+WEBHOOK_PASSPHRASE = os.getenv("WEBHOOK_PASSPHRASE")
+API_KEY = os.getenv("API_KEY")
+API_SECRET = os.getenv("API_SECRET")
 
 app = Flask(__name__)
 
