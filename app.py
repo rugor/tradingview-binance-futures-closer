@@ -23,7 +23,8 @@ CHAT_ID = os.getenv("CHAT_ID")
 
 app = Flask(__name__)
 
-client = Client(API_KEY, API_SECRET)
+# tld us required for US-based server
+client = Client(API_KEY, API_SECRET, tld='us')
 
 def futures_order(side, quantity, symbol, order_type=ORDER_TYPE_MARKET):
     try: 
