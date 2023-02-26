@@ -1,30 +1,29 @@
 from dotenv import load_dotenv
 import os
 import json
+import requests
 from flask import Flask, request
 from binance.client import Client
 from binance.enums import *
 
 load_dotenv()  # take environment variables from .env.
 
+# tradingview ip whitelist
+# https://www.tradingview.com/support/solutions/43000529348-about-webhooks/
+# 52.89.214.238
+# 34.212.75.30
+# 54.218.53.128
+# 52.32.178.7
+
 WEBHOOK_PASSPHRASE = os.getenv("WEBHHOOK_PASSPHRASE")
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
 app = Flask(__name__)
 
 client = Client(API_KEY, API_SECRET)
-
-# def order(side, quantity, symbol, order_type=ORDER_TYPE_MARKET):
-#     try:
-#         print(f"sending order {order_type} - {side} {quantity} {symbol}")
-#         order = client.create_order(symbol=symbol, side=side, type=order_type, quantity=quantity)
-#         # print(order)
-#     except Exception as e:
-#         print("an exception occured - {}".format(e))
-#         return False
-
-#     return order
 
 def futures_order(side, quantity, symbol, order_type=ORDER_TYPE_MARKET):
     try: 
@@ -53,62 +52,34 @@ def webhook():
 
     if data['passphrase'] != WEBHOOK_PASSPHRASE:
       print("order failed")
-      # print(config.WEBHOOK_PASSPHRASE)
       return {
         "code": "error",
         "message": "order failed"
       }
-    else:  
-      # side = data['strategy']['order_action'].upper()
-      # quantity = data['strategy']['order_contract']
-      # ticker = data['ticker']
-      # bar = data['bar']
-      # print (side)
-      # print (quantity)
-      # print (ticker)
-      # print (bar)
-      
-      # side, quantity, symbol, order_type=ORDER_TYPE_MARKET
+    else: 
+      # SETUP THE VARS
+      #  
+      # side = BUY OR SELL
+      side = data['strategy']['order_action'].upper()
+      # quantity = COIN QUANTITY
+      quantity = data['strategy']['order_contract']
+      # TICKER = MARKET TICKER I.E. BTCUSDTPERP
+      ticker = data['ticker']
+      # TICKER_TRUNC = TRUNCATED TICKER FOR MAKING AN ORDER ON BINANCE FUTURES API
+      ticker_trunc = ticker[ 0 : 7 ]
 
-      # spot order
-      #order_response = order("BUY", 0.0005, "BTCUSDT")
+      # FUTURES MARKET ORDER
+      # *uses the coin's default leverage*
+      order_response = futures_order(side, quantity, ticker_trunc)
+      # print(order_response)
 
-      # futures limit order
-      # binance_client.futures_create_order(
-      #     symbol='BTCUSDT',
-      #     type='LIMIT',
-      #     timeInForce='GTC',  # Can be changed - see link to API doc below
-      #     price=30000,  # The price at which you wish to buy/sell, float
-      #     side='BUY',  # Direction ('BUY' / 'SELL'), string
-      #     quantity=0.001  # Number of coins you wish to buy / sell, float
-      # )
-      
-      # futures market order
-      # this is using default leverage
-      order_response = futures_order("SELL", 0.001, "BTCUSDT")
-      
-    # print(order_response)
+      message = f"Closer sent order of {side} {quantity} {ticker_trunc}"
+      url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"
+      # print(requests.get(url).json()) # this sends the message
+      requests.get(url).json()
 
     return {
         "code": "success",
         "message": data
     }
-
-    # if data['passphrase'] != config.WEBHHOOK_PASSPHRASE: 
-    #     return {
-    #         "code": "error",
-    #         "message": "invalid"
-    #     }
-    
-    # if order_response: 
-    #     return {
-    #         "code": "success",
-    #         "message": "order executed"
-    #     }
-    # else:
-    #     print("order failed")
-    #     return {
-    #         "code": "error",
-    #         "message": "order failed"
-    #     }
    
