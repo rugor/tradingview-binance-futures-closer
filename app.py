@@ -10,7 +10,7 @@ API_SECRET = os.getenv("API_SECRET")
 
 app = Flask(__name__)
 
-client = Client(config.API_KEY, config.API_SECRET, tld='us')
+client = Client(API_KEY, API_SECRET, tld='us')
 
 def order(side, quantity, symbol, order_type=ORDER_TYPE_MARKET):
     try:
