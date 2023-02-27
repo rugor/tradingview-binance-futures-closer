@@ -8,7 +8,7 @@ from binance.enums import *
 
 load_dotenv()  # take environment variables from .env.
 
-# tradingview ip whitelist
+# tradingview ip whitelist, if needed
 # https://www.tradingview.com/support/solutions/43000529348-about-webhooks/
 # 52.89.214.238
 # 34.212.75.30
@@ -76,34 +76,30 @@ def webhook():
         "message": "order failed"
       }
     else: 
-      # SETUP THE VARS
-      #  
-      # side = BUY OR SELL
-      side = data['strategy']['order_action'].upper()
-      # quantity = COIN QUANTITY
-      quantity = data['strategy']['order_contract']
+      # SETUP VARS
       # TICKER = MARKET TICKER I.E. BTCUSDTPERP
       ticker = data['ticker']
+      alert_time = data['time']
       # TICKER_TRUNC = TRUNCATED TICKER FOR MAKING AN ORDER ON BINANCE FUTURES API
       ticker_trunc = ticker[ 0 : 7 ]
 
-      # FUTURES MARKET ORDER
-      # * will use the coin's default leverage setting *
-
+      # CHECK POSITIONS OF UNDERLYING ASSET
       position_data = client.futures_position_information()
 
       if position_data:
           for position in position_data:
             if float(position['positionAmt']) != 0:
+                
                 # check that the requested symbol is correct
                 if position['symbol'] == ticker_trunc:
                     
+                    print(ticker_trunc, position['symbol'])
                     # do opposite of what the position is
                     side = "BUY" if determine_short_or_long(position)=="SHORT" else "SELL"
                     order_response = futures_order(side, position['positionAmt'], ticker_trunc)
               
                     # compose text message
-                    message = f"Closer sent order of {side} {quantity} {ticker_trunc}"
+                    message = f"Closer sent order of {side} {position['positionAmt']} {ticker_trunc}"
                     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"
                    
                     # send the message
@@ -125,25 +121,9 @@ def webhook():
                 # position['notional']
                 # position['isolatedWallet']
                 # position['updateTime']
-                
-                # then it means that the position is open
 
-                # side = "BUY" if determine_short_or_long(position)=="SHORT" else "SELL"
-
-                # place the order here
-                # print(position["markPrice"])
-                # order_response = futures_order(side, quantity, ticker_trunc)
-                # if not side:
-                #     symbol = position['symbol']
-                #     print(f'Could not determine side of the {symbol} position !')
-                #     continue
       else:
           print('no position data found')
-
-      # message = f"Closer sent order of {side} {quantity} {ticker_trunc}"
-      # url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"
-      # # print(requests.get(url).json()) # this sends the message
-      # requests.get(url).json()
 
     return {
         "code": "success",
