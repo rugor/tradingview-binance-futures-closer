@@ -80,6 +80,7 @@ def webhook():
     data = json.loads(request.data)
     alert_passphrase = data['passphrase']
     alert_ticker = data['ticker']
+    alert_time = data['time']
     ticker_trunc = alert_ticker[ 0 : 7 ]
 
     if alert_passphrase != WEBHOOK_PASSPHRASE:
@@ -90,8 +91,6 @@ def webhook():
       }
     else: 
       # TICKER_TRUNC = TRUNCATED TICKER FOR MAKING AN ORDER ON BINANCE FUTURES API
-      
-
       # CHECK POSITIONS OF UNDERLYING ASSET
       # ASYNC HERE
       
@@ -109,7 +108,7 @@ def webhook():
                     # market close the position
                     order_response = futures_order(side, position['positionAmt'], ticker_trunc)        
                     # compose text message
-                    message = f"Closer sent order of {side} {position['positionAmt']} {ticker_trunc}"
+                    message = f"Closer sent order of \n \n {side} \n{position['positionAmt']} \n{ticker_trunc} \n"
                     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"               
                     # send the message
                     requests.get(url).json()
