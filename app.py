@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import os
 import json
+import time
 import requests
 from flask import Flask, request
 from binance.client import Client
@@ -66,61 +67,54 @@ def hello_world():
 
 @app.route("/closer", methods=["POST"])
 def webhook():
+    
+    # workflow
+
+    # check that the alert data is received
+    # check that the alertpassphrase is correct
+    # check that position defined in data exists on binance
+    # close the position on binance
+    # send a text message about the position close
+
     # print(request.data)
     data = json.loads(request.data)
+    alert_passphrase = data['passphrase']
+    alert_ticker = data['ticker']
+    ticker_trunc = alert_ticker[ 0 : 7 ]
 
-    if data['passphrase'] != WEBHOOK_PASSPHRASE:
+    if alert_passphrase != WEBHOOK_PASSPHRASE:
       print("order failed")
       return {
         "code": "error",
         "message": "order failed"
       }
     else: 
-      # SETUP VARS
-      # TICKER = MARKET TICKER I.E. BTCUSDTPERP
-      ticker = data['ticker']
-      alert_time = data['time']
       # TICKER_TRUNC = TRUNCATED TICKER FOR MAKING AN ORDER ON BINANCE FUTURES API
-      ticker_trunc = ticker[ 0 : 7 ]
+      
 
       # CHECK POSITIONS OF UNDERLYING ASSET
+      # ASYNC HERE
+      
       position_data = client.futures_position_information()
+
+      time.sleep(1.1)
 
       if position_data:
           for position in position_data:
-            if float(position['positionAmt']) != 0:
-                
+            if float(position['positionAmt']) != 0:         
                 # check that the requested symbol is correct
-                if position['symbol'] == ticker_trunc:
-                    
-                    print(ticker_trunc, position['symbol'])
-                    # do opposite of what the position is
+                if position['symbol'] == ticker_trunc:       
+                    # find opposite of what the position is
                     side = "BUY" if determine_short_or_long(position)=="SHORT" else "SELL"
-                    order_response = futures_order(side, position['positionAmt'], ticker_trunc)
-              
+                    # market close the position
+                    order_response = futures_order(side, position['positionAmt'], ticker_trunc)        
                     # compose text message
                     message = f"Closer sent order of {side} {position['positionAmt']} {ticker_trunc}"
-                    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"
-                   
+                    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"               
                     # send the message
                     requests.get(url).json()
                 else: 
                     print('nope')
-                # position['symbol']
-                # position['positionAmt']
-                # position['entryPrice']
-                # position['markPrice']
-                # position['unRealizedProfit']
-                # position['liquidationPrice']
-                # position['leverage']
-                # position['maxNotionalValue']
-                # position['marginType']
-                # position['isolatedMargin']
-                # position['isAutoAddMargin']
-                # position['positionSide']
-                # position['notional']
-                # position['isolatedWallet']
-                # position['updateTime']
 
       else:
           print('no position data found')
