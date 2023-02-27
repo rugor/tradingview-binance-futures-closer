@@ -1,8 +1,5 @@
 from dotenv import load_dotenv
-import os
-import json
-import time
-import requests
+import os, requests, json, time
 from flask import Flask, request
 from binance.client import Client
 from binance.enums import *
@@ -21,6 +18,9 @@ API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+# FIXIE_URL = os.getenv("FIXIE_URL")
+os.environ['http_proxy'] = os.environ.get('FIXIE_URL', '')
+os.environ['https_proxy'] = os.environ.get('FIXIE_URL', '')
 
 app = Flask(__name__)
 
@@ -69,13 +69,6 @@ def hello_world():
 def webhook():
     
     # workflow
-
-    # check that the alert data is received
-    # check that the alertpassphrase is correct
-    # check that position defined in data exists on binance
-    # close the position on binance
-    # send a text message about the position close
-
     # print(request.data)
     data = json.loads(request.data)
     alert_passphrase = data['passphrase']
@@ -108,7 +101,7 @@ def webhook():
                     # market close the position
                     order_response = futures_order(side, position['positionAmt'], ticker_trunc)        
                     # compose text message
-                    message = f"Closer sent order of \n \n {side} \n{position['positionAmt']} \n{ticker_trunc} \n"
+                    message = f"Closer sent order of \n \n {side} \n{position['positionAmt']} {ticker_trunc} \n {alert_time}"
                     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"               
                     # send the message
                     requests.get(url).json()
