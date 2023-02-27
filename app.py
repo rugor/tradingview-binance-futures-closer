@@ -26,6 +26,24 @@ app = Flask(__name__)
 # tld us required for US-based server: , tld='us'
 client = Client(API_KEY, API_SECRET)
 
+# figure out if existing position is short or long
+def determine_short_or_long(position):
+      mark_price = float(position['markPrice'])
+      entry_price = float(position['entryPrice'])
+      if mark_price != entry_price:
+          profit = float(position['unRealizedProfit']) >= 0
+          if entry_price < mark_price and profit:
+              return 'LONG'
+          elif entry_price < mark_price and not profit:
+              return 'SHORT'
+          elif entry_price > mark_price and profit:
+              return 'SHORT'
+          elif entry_price > mark_price and not profit:
+              return 'LONG'
+      else:
+          return False
+
+# place futures order
 def futures_order(side, quantity, symbol, order_type=ORDER_TYPE_MARKET):
     try: 
         print(f"sending order {order_type} - {side} {quantity} {symbol}")
@@ -70,14 +88,62 @@ def webhook():
       ticker_trunc = ticker[ 0 : 7 ]
 
       # FUTURES MARKET ORDER
-      # *uses the coin's default leverage*
-      order_response = futures_order(side, quantity, ticker_trunc)
-      # print(order_response)
+      # * will use the coin's default leverage setting *
 
-      message = f"Closer sent order of {side} {quantity} {ticker_trunc}"
-      url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"
-      # print(requests.get(url).json()) # this sends the message
-      requests.get(url).json()
+      position_data = client.futures_position_information()
+
+      if position_data:
+          for position in position_data:
+            if float(position['positionAmt']) != 0:
+                # check that the requested symbol is correct
+                if position['symbol'] == ticker_trunc:
+                    
+                    # do opposite of what the position is
+                    side = "BUY" if determine_short_or_long(position)=="SHORT" else "SELL"
+                    order_response = futures_order(side, position['positionAmt'], ticker_trunc)
+              
+                    # compose text message
+                    message = f"Closer sent order of {side} {quantity} {ticker_trunc}"
+                    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"
+                   
+                    # send the message
+                    requests.get(url).json()
+                else: 
+                    print('nope')
+                # position['symbol']
+                # position['positionAmt']
+                # position['entryPrice']
+                # position['markPrice']
+                # position['unRealizedProfit']
+                # position['liquidationPrice']
+                # position['leverage']
+                # position['maxNotionalValue']
+                # position['marginType']
+                # position['isolatedMargin']
+                # position['isAutoAddMargin']
+                # position['positionSide']
+                # position['notional']
+                # position['isolatedWallet']
+                # position['updateTime']
+                
+                # then it means that the position is open
+
+                # side = "BUY" if determine_short_or_long(position)=="SHORT" else "SELL"
+
+                # place the order here
+                # print(position["markPrice"])
+                # order_response = futures_order(side, quantity, ticker_trunc)
+                # if not side:
+                #     symbol = position['symbol']
+                #     print(f'Could not determine side of the {symbol} position !')
+                #     continue
+      else:
+          print('no position data found')
+
+      # message = f"Closer sent order of {side} {quantity} {ticker_trunc}"
+      # url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"
+      # # print(requests.get(url).json()) # this sends the message
+      # requests.get(url).json()
 
     return {
         "code": "success",
