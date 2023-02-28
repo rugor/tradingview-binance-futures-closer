@@ -18,7 +18,7 @@ API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-# FIXIE_URL = os.getenv("FIXIE_URL")
+# FIXIE proxy
 os.environ['http_proxy'] = os.environ.get('FIXIE_URL', '')
 os.environ['https_proxy'] = os.environ.get('FIXIE_URL', '')
 
@@ -26,6 +26,20 @@ app = Flask(__name__)
 
 # tld us required for US-based server: , tld='us'
 client = Client(API_KEY, API_SECRET)
+
+def get_futures_ticker(ticker):
+    sub = "USDTPERP"
+    if sub in ticker:
+        usdt = "USDT"
+        new_ticker = ticker[:ticker.index(sub)]
+        new_ticker += usdt
+        return new_ticker
+    else:
+        print("Not USDTPERP")
+        return {
+          "code": "error",
+          "message": "ticker not USDTPERP"
+        }
 
 # figure out if existing position is short or long
 def determine_short_or_long(position):
@@ -68,13 +82,11 @@ def hello_world():
 @app.route("/closer", methods=["POST"])
 def webhook():
     
-    # workflow
-    # print(request.data)
     data = json.loads(request.data)
     alert_passphrase = data['passphrase']
     alert_ticker = data['ticker']
     alert_time = data['time']
-    ticker_trunc = alert_ticker[ 0 : 7 ]
+    ticker_trunc = get_futures_ticker(alert_ticker)
 
     if alert_passphrase != WEBHOOK_PASSPHRASE:
       print("order failed")
@@ -85,11 +97,7 @@ def webhook():
     else: 
       # TICKER_TRUNC = TRUNCATED TICKER FOR MAKING AN ORDER ON BINANCE FUTURES API
       # CHECK POSITIONS OF UNDERLYING ASSET
-      # ASYNC HERE
-      
       position_data = client.futures_position_information()
-
-      time.sleep(1.1)
 
       if position_data:
           for position in position_data:
@@ -101,7 +109,7 @@ def webhook():
                     # market close the position
                     order_response = futures_order(side, position['positionAmt'], ticker_trunc)        
                     # compose text message
-                    message = f"Closer sent order of \n \n {side} \n{position['positionAmt']} {ticker_trunc} \n {alert_time}"
+                    message = f"Closer sent order of:\n{side}\n{position['positionAmt']} {ticker_trunc} \n{alert_time}"
                     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"               
                     # send the message
                     requests.get(url).json()
