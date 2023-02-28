@@ -106,10 +106,12 @@ def webhook():
                 if position['symbol'] == ticker_trunc:       
                     # find opposite of what the position is
                     side = "BUY" if determine_short_or_long(position)=="SHORT" else "SELL"
+                    # remove negative sign from existing positionAmt for short positions
+                    quantity = position['positionAmt'].replace("-", "")
                     # market close the position
-                    order_response = futures_order(side, position['positionAmt'], ticker_trunc)        
+                    order_response = futures_order(side, quantity, ticker_trunc)        
                     # compose text message
-                    message = f"Closer sent order of:\n{side}\n{position['positionAmt']} {ticker_trunc} \n{alert_time}"
+                    message = f"Closer sent order of:\n{side}\n{quantity} {ticker_trunc} \n{alert_time}"
                     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"               
                     # send the message
                     requests.get(url).json()
