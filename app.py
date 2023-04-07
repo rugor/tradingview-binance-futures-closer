@@ -28,17 +28,17 @@ app = Flask(__name__)
 client = Client(API_KEY, API_SECRET)
 
 def get_futures_ticker(ticker):
-    sub = "USDTPERP"
+    sub = "USDT.P"
     if sub in ticker:
         usdt = "USDT"
         new_ticker = ticker[:ticker.index(sub)]
         new_ticker += usdt
         return new_ticker
     else:
-        print("Not USDTPERP")
+        print("Not USDT.P")
         return {
           "code": "error",
-          "message": "ticker not USDTPERP"
+          "message": "ticker not USDT.P"
         }
 
 # figure out if existing position is short or long
