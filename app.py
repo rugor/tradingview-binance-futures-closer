@@ -1,32 +1,39 @@
+# load dependencies (requirements.txt)
 from dotenv import load_dotenv
 import os, requests, json, time
 from flask import Flask, request
 from binance.client import Client
 from binance.enums import *
 
-load_dotenv()  # take environment variables from .env.
+# take environment variables from .env
+load_dotenv()
 
-# tradingview ip whitelist, if needed
+# tradingview ip whitelist, if needed for binance api security
 # https://www.tradingview.com/support/solutions/43000529348-about-webhooks/
 # 52.89.214.238
 # 34.212.75.30
 # 54.218.53.128
 # 52.32.178.7
 
+# queue up your environment variables
 WEBHOOK_PASSPHRASE = os.getenv("WEBHHOOK_PASSPHRASE")
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-# FIXIE proxy
+
+# FIXIE proxy; you need a fixed IP address for Binance API security whitelist
+# This is so only requests from a specific consistent IP are allowed to trigger API requests
 os.environ['http_proxy'] = os.environ.get('FIXIE_URL', '')
 os.environ['https_proxy'] = os.environ.get('FIXIE_URL', '')
 
+# define app and client
 app = Flask(__name__)
-
-# tld us required for US-based server: , tld='us'
 client = Client(API_KEY, API_SECRET)
 
+# these are the functions we will use later on
+
+# 1. strip the "USDT.P" suffix from the tradingview ticker symbol and replace with "USDT" for binance API
 def get_futures_ticker(ticker):
     sub = "USDT.P"
     if sub in ticker:
@@ -41,7 +48,7 @@ def get_futures_ticker(ticker):
           "message": "ticker not USDT.P"
         }
 
-# figure out if existing position is short or long
+# 2. figure out if the position is short or long; "side"
 def determine_short_or_long(position):
       mark_price = float(position['markPrice'])
       entry_price = float(position['entryPrice'])
@@ -58,7 +65,7 @@ def determine_short_or_long(position):
       else:
           return False
 
-# place futures order
+# 3. place a new market order to close the short or long position
 def futures_order(side, quantity, symbol, order_type=ORDER_TYPE_MARKET):
     try: 
         print(f"sending order {order_type} - {side} {quantity} {symbol}")
@@ -88,6 +95,7 @@ def webhook():
     alert_time = data['time']
     ticker_trunc = get_futures_ticker(alert_ticker)
 
+    # check that the passphrase in the TradingView alert message matches the passphrase from the .env file
     if alert_passphrase != WEBHOOK_PASSPHRASE:
       print("order failed")
       return {
@@ -95,21 +103,25 @@ def webhook():
         "message": "order failed"
       }
     else: 
-      # TICKER_TRUNC = TRUNCATED TICKER FOR MAKING AN ORDER ON BINANCE FUTURES API
-      # CHECK POSITIONS OF UNDERLYING ASSET
+      # ticker_trunc = a truncated ticker symbol format for making an order through the binance futures API
+      # pull all account open position info from binance futures API
       position_data = client.futures_position_information()
 
       if position_data:
+          # for all open positions
           for position in position_data:
             if float(position['positionAmt']) != 0:         
-                # check that the requested symbol is correct
+                
+                # check the truncated symbol received from tradingview against open positions
                 if position['symbol'] == ticker_trunc:       
-                    # find opposite of what the position is
+
+                    # define the side for the market order (this function is defined above)
                     side = "BUY" if determine_short_or_long(position)=="SHORT" else "SELL"
-                    # remove negative sign from existing positionAmt for short positions
+                    # remove negative sign from existing positionAmt (in the case of short positions)
                     quantity = position['positionAmt'].replace("-", "")
                     # market close the position
-                    order_response = futures_order(side, quantity, ticker_trunc)        
+                    order_response = futures_order(side, quantity, ticker_trunc)      
+                    # this stuff is optional... send a telegram message when the order has completed  
                     # compose text message
                     message = f"Closer sent order of:\n{side}\n{quantity} {ticker_trunc} \n{alert_time}"
                     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message}"               
@@ -125,4 +137,10 @@ def webhook():
         "code": "success",
         "message": data
     }
-   
+
+# paste this in the "message" of the TradingView Alert   
+# {
+#   "passphrase": "some_passphrase_defined_in_the_.env_file",
+#   "time": "{{timenow}}",
+#   "ticker": "{{ticker}}"
+# }
