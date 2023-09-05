@@ -1,0 +1,35 @@
+{
+  "name": "tradingview binance futures closer",
+  "description": "This app closes binance futures positions via tradingview alerts",
+  "keywords": [
+    "tradingview",
+    "binance",
+    "crypto",
+    "cryptocurrency"
+  ],
+  "repository": "https://github.com/rugor/tradingview-binance-futures-closer/tarball/master/",
+  "success_url": "/",
+  "scripts": {
+    "postdeploy": "flask--app app run--debug"
+  },
+ "env": {
+   "API_KEY": "Your_Binance_API_KEY",
+   "API_SECRET": "Your_Binance_API_SECRET_KEY",
+   "CHAT_ID": "Your_Telegram_Chat_ID",
+   "FIXIE_URL": "Your_Fixie_URL",
+   "TELEGRAM_TOKEN": "Your_Telegram_Token",
+   "WEBHHOOK_PASSPHRASE": "Your_Custom_Webhook_Passphrase"
+ },
+ "formation": {
+   "web": {
+     "quantity": 1
+   }
+ },
+ "addons": [
+   "fixie"
+ ],
+ "buildpacks": [{
+   "url": "heroku/python"
+ }],
+ "stack": "heroku-22"
+}
